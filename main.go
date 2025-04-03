@@ -38,6 +38,8 @@ func main() {
 	}
 }
 
+var specialOpen = false
+
 func EventListener(event events.Event) {
 	switch event.(type) {
 	case events.OpenWindowEvent,
@@ -55,8 +57,10 @@ func EventListener(event events.Event) {
 		if event.WorkspaceName == "" {
 			// WorkspaceName is empty when we close a special workspace
 			CheckWorkspace()
+			specialOpen = false
 		} else {
 			// Keep the special workspace full width, always
+			specialOpen = true
 			_ = RemoveReservedSpace(event.MonitorName)
 		}
 		break
@@ -66,8 +70,10 @@ func EventListener(event events.Event) {
 		if event.WorkspaceName == "" {
 			// WorkspaceName is empty when we close a special workspace
 			CheckWorkspace()
+			specialOpen = false
 		} else {
 			// Keep the special workspace full width, always
+			specialOpen = true
 			_ = RemoveReservedSpace(event.MonitorName)
 		}
 		break
@@ -75,6 +81,12 @@ func EventListener(event events.Event) {
 }
 
 func CheckWorkspace() {
+	if specialOpen {
+		//Hyprland still sends events when workspaces are changed behind the special workspace.
+		//Don't do anything since we want special workspace to always be full width
+		return
+	}
+
 	workspace, err := hypr.GetActiveWorkspace()
 	if err != nil {
 		fmt.Printf("Error getting active workspace: %v\n", err)
@@ -102,9 +114,13 @@ func CheckWorkspace() {
 }
 
 func AddReservedSpace(monitor string, top, bottom, left, right int) error {
-	return hypr.Keyword(fmt.Sprintf("monitor %s,addreserved,%d,%d,%d,%d", monitor, top, bottom, left, right))
+	return hypr.NewRequest().
+		Keyword(fmt.Sprintf("monitor %s,addreserved,%d,%d,%d,%d", monitor, top, bottom, left, right)).
+		Send()
 }
 
 func RemoveReservedSpace(monitor string) error {
-	return hypr.Keyword(fmt.Sprintf("monitor %s,addreserved,0,0,0,0", monitor))
+	return hypr.NewRequest().
+		Keyword(fmt.Sprintf("monitor %s,addreserved,0,0,0,0", monitor)).
+		Send()
 }
